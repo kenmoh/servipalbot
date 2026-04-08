@@ -351,3 +351,7 @@ class LeadImportResult(BaseModel):
 class SettingsUpdateRequest(BaseModel):
     """Request body for /system/settings endpoint."""
     use_serpapi: bool
+
+class ChatRequest(BaseModel):
+    """Request body for /ai/chat endpoint."""
+    message: str

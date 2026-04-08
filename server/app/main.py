@@ -25,7 +25,7 @@ from app.db.database import SupabaseClient
 from app.media.scheduler import BotScheduler
 from app.schemas.schemas import (
     ScrapeRequest, OutreachRequest, EmailOutreachRequest, EmailSendRequest, SocialPostRequest,
-    BotRunRequest, BotStatus, Lead, LeadImportResult, SettingsUpdateRequest
+    BotRunRequest, BotStatus, Lead, LeadImportResult, SettingsUpdateRequest, ChatRequest
 )
 from app.config.config import settings
 
@@ -124,6 +124,13 @@ async def update_settings(request: SettingsUpdateRequest):
         "message": "Settings updated (runtime only)",
         "config": settings.integration_status()
     }
+
+
+@app.post("/ai/chat", tags=["AI Interaction"])
+async def ai_chat_interaction(request: ChatRequest):
+    """Directly interact with the AI model from the dashboard."""
+    response_text = await app.state.ai.chat_completion(request.message)
+    return {"response": response_text}
 
 
 # ─── Full Bot Run (Supabase Cron entry point) ─────────────────────────────────

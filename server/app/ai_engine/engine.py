@@ -136,7 +136,7 @@ Respond ONLY with valid JSON:
 
 # ── Category -> Benefit Mapping ───────────────────────────────────────────────
 CATEGORY_BENEFITS = {
-    "restaurant":  "reach more hungry customers with online ordering and delivery through ServiPal",
+    "restaurant":  "reach more customers with online ordering and delivery through ServiPal",
     "laundry":     "get more laundry pickup/delivery requests directly through the ServiPal app",
     "delivery":    "join our growing delivery partner network and access daily order volume",
     "grocery":     "list your grocery store and offer same-day delivery to nearby customers",
@@ -187,7 +187,7 @@ class AIEngine:
             else:
                 return await self._call_ollama(prompt, max_tokens)
         except Exception as e:
-            logger.error(f"❌ LLM call failed: {e}")
+            logger.error(f"LLM call failed: {e}")
             return None
 
     async def _call_groq(self, prompt: str, max_tokens: int) -> Optional[str]:
@@ -210,7 +210,7 @@ class AIEngine:
         )
 
         if response.status_code == 429:
-            logger.warning("⚠️ Groq rate limit hit — backing off 60s")
+            logger.warning("Groq rate limit hit — backing off 60s")
             import asyncio
             await asyncio.sleep(60)
             response = await self.client.post(
@@ -267,7 +267,7 @@ class AIEngine:
             except json.JSONDecodeError:
                 pass
 
-        logger.warning(f"⚠️ Could not parse JSON: {text[:150]}")
+        logger.warning(f"Could not parse JSON: {text[:150]}")
         return None
 
     def _sanitize_generated_text(self, text: str) -> str:
@@ -352,7 +352,7 @@ class AIEngine:
         data = self._extract_json(raw)
 
         if not data:
-            logger.warning(f"⚠️ No valid JSON for {vendor_name}, using fallback")
+            logger.warning(f"No valid JSON for {vendor_name}, using fallback")
             return self._fallback_whatsapp_message(vendor_name, category, location, benefit)
 
         try:
@@ -365,7 +365,7 @@ class AIEngine:
                 )
             return WhatsAppMessage(**data)
         except Exception as e:
-            logger.warning(f"⚠️ Validation failed: {e} — using fallback")
+            logger.warning(f"Validation failed: {e} — using fallback")
             return self._fallback_whatsapp_message(vendor_name, category, location, benefit)
 
     async def generate_social_post(
@@ -396,7 +396,7 @@ class AIEngine:
             data["post_type"] = post_type
             return SocialPost(**data)
         except Exception as e:
-            logger.warning(f"⚠️ Social post validation failed: {e} — using fallback")
+            logger.warning(f"Social post validation failed: {e} — using fallback")
             return self._fallback_social_post(post_type)
 
     async def generate_cold_email(
@@ -464,7 +464,7 @@ class AIEngine:
             data["lead_id"] = lead_id
             return LeadClassification(**data)
         except Exception as e:
-            logger.warning(f"⚠️ Lead classification validation failed: {e}")
+            logger.warning(f"Lead classification validation failed: {e}")
             return None
 
     # ── Fallbacks ─────────────────────────────────────────────────────────────
@@ -529,3 +529,50 @@ class AIEngine:
             "provider": self.provider,
             "model": self.model,
         }
+
+    async def chat_completion(self, message: str) -> str:
+        """Raw conversational interaction bypassing standard JSON formatting restrictions."""
+        if not self.enabled:
+            return "AI Engine is not configured."
+            
+        system_prompt = (
+            "You are ServiPal Bot, a helpful operational AI for a service directory company. "
+            "Help the administrator answer questions about operations, write emails, or debug business strategy."
+        )
+
+        try:
+            if self.provider == "groq":
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": message}
+                    ],
+                    "max_tokens": 1000,
+                    "temperature": 0.5,
+                }
+                response = await self.client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()["choices"][0]["message"]["content"]
+            else:
+                payload = {
+                    "model": self.model,
+                    "prompt": f"{system_prompt}\n\nUser: {message}\n\nAssistant:",
+                    "stream": False,
+                    "options": {"temperature": 0.5, "num_predict": 1000},
+                }
+                response = await self.client.post(
+                    f"{self.base_url}/api/generate",
+                    headers=self.headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json().get("response", "")
+        except Exception as e:
+            import logging
+            logging.getLogger("servipal_bot.ai_engine").error(f"Chat completion failed: {e}")
+            return f"Error communicating with AI model: {str(e)}"
