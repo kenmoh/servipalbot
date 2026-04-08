@@ -63,7 +63,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Name</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Category</TableHead>
-                <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Website</TableHead>
+                <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3 w-[200px]">Website</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Contact</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Status</TableHead>
                 <TableHead className="text-right font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Actions</TableHead>
