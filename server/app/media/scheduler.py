@@ -95,7 +95,7 @@ class BotScheduler:
 
         dry_run=True: generate content without sending/posting.
         """
-        started_at = datetime.utcnow()
+        started_at = datetime.now()
         summary = {
             "mode": mode,
             "dry_run": dry_run,
@@ -174,7 +174,7 @@ class BotScheduler:
                 await self.whatsapp.retry_failed_messages(self.db)
 
             # ── Done ──────────────────────────────────────────────────────────
-            self._last_run_at = datetime.utcnow()
+            self._last_run_at = datetime.now()
             self._last_run_status = "success" if not summary["errors"] else "partial"
             summary["completed_at"] = self._last_run_at.isoformat()
             summary["duration_seconds"] = (
@@ -315,7 +315,7 @@ class BotScheduler:
 
         # Rotate topic based on day of week
         if not topic:
-            day_index = datetime.utcnow().weekday()
+            day_index = datetime.now().weekday()
             topic = DAILY_POST_TOPICS[day_index % len(DAILY_POST_TOPICS)]
 
         platform_str = " and ".join(p.capitalize() for p in platforms)

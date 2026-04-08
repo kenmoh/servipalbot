@@ -87,7 +87,7 @@ class WhatsAppClient:
             phone=to_phone,
             content=message_text,
             status="pending",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
         )
         saved = await db.save_message(msg_record)
         msg_id = saved["id"] if saved else None
@@ -127,7 +127,7 @@ class WhatsAppClient:
                         msg_id,
                         status="sent",
                         wa_message_id=wa_msg_id,
-                        sent_at=datetime.utcnow().isoformat(),
+                        sent_at=datetime.now().isoformat(),
                     )
 
                 # Update lead status

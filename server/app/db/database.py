@@ -84,7 +84,7 @@ class SupabaseClient:
             data = lead.model_dump(exclude_none=True, exclude={"id"})
             if "website" in data:
                 data["website"] = self._canonicalize_website(data.get("website"))
-            data["updated_at"] = datetime.utcnow().isoformat()
+            # data["updated_at"] = datetime.now().isoformat()
 
             if lead.phone:
                 result = (
@@ -96,12 +96,12 @@ class SupabaseClient:
                 result = self.client.table("leads").insert(data).execute()
 
             if result.data:
-                logger.info(f"📥 Lead saved: {lead.name} ({lead.phone})")
+                logger.info(f"Lead saved: {lead.name} ({lead.phone})")
                 return result.data[0]
             return None
 
         except Exception as e:
-            logger.error(f"❌ Failed to upsert lead {lead.name}: {e}")
+            logger.error(f"Failed to upsert lead {lead.name}: {e}")
             await self.log_activity(
                 event_type="db_error",
                 level="error",
@@ -139,7 +139,7 @@ class SupabaseClient:
                 return None
 
             data = lead.model_dump(exclude_none=True, exclude={"id"})
-            data["updated_at"] = datetime.utcnow().isoformat()
+            # data["updated_at"] = datetime.now().isoformat()
             result = self.client.table("leads").insert(data).execute()
 
             if result.data:
@@ -186,7 +186,7 @@ class SupabaseClient:
             return result.data or []
 
         except Exception as e:
-            logger.error(f"❌ Failed to get leads: {e}")
+            logger.error(f"Failed to get leads: {e}")
             return []
 
     async def update_lead_status(self, lead_id: str, status: str, **kwargs) -> bool:
@@ -194,14 +194,16 @@ class SupabaseClient:
         if not self._is_ready():
             return False
         try:
-            data = {"status": status, "updated_at": datetime.utcnow().isoformat()}
+            data = {"status": status,
+            #  "updated_at": datetime.now().isoformat()
+             }
             data.update(kwargs)
 
             self.client.table("leads").update(data).eq("id", lead_id).execute()
             return True
 
         except Exception as e:
-            logger.error(f"❌ Failed to update lead {lead_id}: {e}")
+            logger.error(f"Failed to update lead {lead_id}: {e}")
             return False
 
     async def lead_exists(self, phone: str) -> bool:
@@ -285,7 +287,7 @@ class SupabaseClient:
             data = dict(fields)
             if "website" in data:
                 data["website"] = self._canonicalize_website(data.get("website"))
-            data["updated_at"] = datetime.utcnow().isoformat()
+            # data["updated_at"] = datetime.now().isoformat()
             self.client.table("leads").update(data).eq("id", lead_id).execute()
             return True
         except Exception as e:
@@ -322,7 +324,7 @@ class SupabaseClient:
             result = self.client.table("messages").insert(data).execute()
             return result.data[0] if result.data else None
         except Exception as e:
-            logger.error(f"❌ Failed to save message: {e}")
+            logger.error(f" Failed to save message: {e}")
             return None
 
     async def update_message_status(
@@ -336,7 +338,9 @@ class SupabaseClient:
         if not self._is_ready():
             return False
         try:
-            data = {"status": status, "updated_at": datetime.utcnow().isoformat()}
+            data = {"status": status,
+            #  "updated_at": datetime.now().isoformat()
+             }
             if wa_message_id:
                 data["wa_message_id"] = wa_message_id
             data.update(kwargs)
@@ -344,7 +348,7 @@ class SupabaseClient:
             self.client.table("messages").update(data).eq("id", message_id).execute()
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to update message {message_id}: {e}")
+            logger.error(f" Failed to update message {message_id}: {e}")
             return False
 
     async def get_messages_sent_today(self) -> int:
@@ -403,7 +407,9 @@ class SupabaseClient:
         if not self._is_ready():
             return False
         try:
-            data = {"status": status, "updated_at": datetime.utcnow().isoformat()}
+            data = {"status": status,
+            #  "updated_at": datetime.now().isoformat()
+             }
             if provider_message_id:
                 data["provider_message_id"] = provider_message_id
             data.update(kwargs)
@@ -473,7 +479,7 @@ class SupabaseClient:
             result = self.client.table("social_posts").insert(data).execute()
             return result.data[0] if result.data else None
         except Exception as e:
-            logger.error(f"❌ Failed to save social post: {e}")
+            logger.error(f"Failed to save social post: {e}")
             return None
 
     async def update_social_post(self, post_id: str, **kwargs) -> bool:
@@ -481,12 +487,12 @@ class SupabaseClient:
         if not self._is_ready():
             return False
         try:
-            data = {"updated_at": datetime.utcnow().isoformat()}
+            # data = {"updated_at": datetime.now().isoformat()}
             data.update(kwargs)
             self.client.table("social_posts").update(data).eq("id", post_id).execute()
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to update social post {post_id}: {e}")
+            logger.error(f"Failed to update social post {post_id}: {e}")
             return False
 
     async def get_social_posts(self, limit: int = 20) -> List[Dict]:
@@ -542,7 +548,7 @@ class SupabaseClient:
                 "message": message,
                 "module": module,
                 "details": details or {},
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now().isoformat(),
             }
             self.client.table("logs").insert(data).execute()
         except Exception as e:

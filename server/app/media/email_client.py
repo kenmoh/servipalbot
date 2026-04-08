@@ -58,7 +58,7 @@ class EmailClient:
                 subject=subject,
                 body=body,
                 status="pending",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(),
             )
             saved = await db.save_email(email_record)
             email_id = saved["id"] if saved else None
@@ -85,7 +85,7 @@ class EmailClient:
                     email_id,
                     status="sent",
                     provider_message_id=resend_id,
-                    sent_at=datetime.utcnow().isoformat(),
+                    sent_at=datetime.now().isoformat(),
                 )
 
             await db.log_activity(
@@ -156,7 +156,7 @@ class EmailClient:
                         subject=email_model.subject,
                         body=email_model.full_email,
                         status="draft",
-                        created_at=datetime.utcnow(),
+                        created_at=datetime.now(),
                     )
                 )
                 if saved:

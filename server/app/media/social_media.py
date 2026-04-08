@@ -260,7 +260,7 @@ class SocialMediaClient:
             ig_post_id=ig_id,
             status=status,
             error_message=error_msg,
-            published_at=datetime.utcnow() if status == "published" else None,
+            published_at=datetime.now() if status == "published" else None,
         )
 
         saved = await db.save_social_post(record)

@@ -89,7 +89,7 @@ async def health_check():
     """Check bot health and module status."""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "version": "1.0.0",
         "modules": {
             "database": "connected" if app.state.db.enabled else "not_configured",
@@ -104,7 +104,7 @@ async def health_check():
 async def get_readiness():
     """Return configuration and integration readiness without exposing secrets."""
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "config": settings.integration_status(),
         "services": {
             "database": await app.state.db.healthcheck(),
@@ -151,7 +151,7 @@ async def run_full_bot_cycle(
     return {
         "message": f"Bot cycle started in background (mode={request.mode})",
         "dry_run": request.dry_run,
-        "triggered_at": datetime.utcnow().isoformat(),
+        "triggered_at": datetime.now().isoformat(),
     }
 
 
