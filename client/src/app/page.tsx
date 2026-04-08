@@ -223,7 +223,7 @@ export default function Home() {
         setDraftCount={setDraftCount}
         draftIds={draftIds}
         setDraftIds={setDraftIds}
-        draftEmailOptions={emails.filter((email) => email.status === "draft" || email.status === "failed")}
+        draftEmailOptions={emails.filter((email) => email.status === "draft")}
         busy={busy}
         queueScrape={queueScrape}
         generateDrafts={generateDrafts}

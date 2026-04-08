@@ -59,7 +59,7 @@ export function ActionForms({
 }: ActionFormsProps) {
   const [draftPicker, setDraftPicker] = useState("");
   const sendableEmailOptions = useMemo(
-    () => draftEmailOptions.filter((item) => item.status === "draft" || item.status === "failed"),
+    () => draftEmailOptions.filter((item) => item.status === "draft"),
     [draftEmailOptions]
   );
 
@@ -197,7 +197,7 @@ export function ActionForms({
               ) : (
                 sendableEmailOptions.map((draft) => (
                   <option key={draft.id} value={draft.id}>
-                    [{draft.status}] {draft.email} | {draft.subject}
+                    {draft.email} | {draft.subject}
                   </option>
                 ))
               )}

@@ -408,12 +408,20 @@ class SupabaseClient:
         if not self._is_ready() or not email_id or not updates:
             return None
 
-        allowed_fields = {"email", "subject", "body"}
+        allowed_fields = {"email", "subject", "body", "status"}
         data: Dict[str, Any] = {
             key: value for key, value in updates.items() if key in allowed_fields and value is not None
         }
         if not data:
             return None
+
+        # Only allow restoring to draft via this endpoint.
+        if "status" in data and data["status"] != "draft":
+            return None
+        if data.get("status") == "draft":
+            # "Restore" semantics: clear failure metadata when re-queueing.
+            data.setdefault("error_message", None)
+            data.setdefault("retry_count", 0)
 
         try:
             query = self.client.table("email_messages").update(data).eq("id", email_id)

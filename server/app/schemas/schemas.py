@@ -318,6 +318,10 @@ class EmailUpdateRequest(BaseModel):
     email: Optional[str] = None
     subject: Optional[str] = None
     body: Optional[str] = None
+    status: Optional[Literal["draft"]] = Field(
+        default=None,
+        description="Optional: set status back to draft (e.g., to re-queue a failed email)",
+    )
 
 
 class SocialPostRequest(BaseModel):

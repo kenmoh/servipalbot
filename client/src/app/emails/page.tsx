@@ -31,6 +31,7 @@ export default function EmailsPage() {
   const [selectedEmail, setSelectedEmail] = useState<EmailRecord | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState({ email: "", subject: "", body: "" });
+  const [restoreToDraft, setRestoreToDraft] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,7 @@ export default function EmailsPage() {
     if (!selectedEmail) return;
     setIsEditing(false);
     setSaveError("");
+    setRestoreToDraft(selectedEmail.status === "failed");
     setDraft({
       email: selectedEmail.email ?? "",
       subject: selectedEmail.subject ?? "",
@@ -95,6 +97,7 @@ export default function EmailsPage() {
         email: draft.email.trim(),
         subject: draft.subject.trim(),
         body: draft.body,
+        ...(restoreToDraft ? { status: "draft" as const } : {}),
       };
 
       const updated = await request<{ email: EmailRecord }>(`/emails/${selectedEmail.id}`, {
@@ -252,6 +255,22 @@ export default function EmailsPage() {
                   </Badge>
                 </div>
               </div>
+              {isEditing && selectedEmail.status === "failed" && (
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-border/50 bg-secondary/10 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Restore To Draft</p>
+                    <p className="text-xs text-muted-foreground mt-1">If enabled, this failed email will be moved back to draft after saving.</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={restoreToDraft}
+                      onChange={(event) => setRestoreToDraft(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                  </label>
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Subject</h3>
                 {isEditing ? (
@@ -292,6 +311,7 @@ export default function EmailsPage() {
                     onClick={() => {
                       setIsEditing(false);
                       setSaveError("");
+                      setRestoreToDraft(selectedEmail.status === "failed");
                       setDraft({
                         email: selectedEmail.email ?? "",
                         subject: selectedEmail.subject ?? "",
