@@ -305,6 +305,12 @@ class EmailSendRequest(BaseModel):
         description="Specific draft email record IDs to send",
         min_length=1,
     )
+    delay_seconds: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=600,
+        description="Optional per-email delay override (seconds) between sends",
+    )
 
 
 class EmailUpdateRequest(BaseModel):
@@ -357,7 +363,8 @@ class LeadImportResult(BaseModel):
 
 class SettingsUpdateRequest(BaseModel):
     """Request body for /system/settings endpoint."""
-    use_serpapi: bool
+    use_serpapi: Optional[bool] = None
+    email_delay_seconds: Optional[int] = Field(default=None, ge=0, le=600)
 
 class ChatRequest(BaseModel):
     """Request body for /ai/chat endpoint."""

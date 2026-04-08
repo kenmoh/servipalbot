@@ -7,7 +7,7 @@ Handles outbound cold email via Resend with basic throttling and delivery loggin
 import asyncio
 import logging
 from datetime import datetime
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import httpx
 
@@ -172,6 +172,8 @@ class EmailClient:
         self,
         email_records: list[dict],
         db: SupabaseClient,
+        *,
+        delay_seconds: Optional[int] = None,
     ) -> Dict[str, int]:
         """Send previously drafted email records with throttling."""
         stats = {"attempted": 0, "sent": 0, "failed": 0, "skipped": 0}
@@ -182,17 +184,24 @@ class EmailClient:
             logger.warning(f"Daily email limit reached ({self.daily_limit}). Skipping.")
             return stats
 
-        for record in email_records[:remaining]:
-            if record.get("status") not in ("draft", "failed"):
+        effective_delay = self.delay_seconds if delay_seconds is None else max(int(delay_seconds), 0)
+
+        for index, record in enumerate(email_records[:remaining]):
+            # Re-check the current status at send-time to avoid sending something
+            # that was already sent/edited elsewhere.
+            latest = await db.get_email_message_by_id(record.get("id", ""))
+            latest_status = (latest or record).get("status")
+
+            if latest_status not in ("draft", "failed"):
                 stats["skipped"] += 1
                 continue
 
             stats["attempted"] += 1
             success, _ = await self.send_email(
-                to_email=record["email"],
-                subject=record["subject"],
-                body=record["body"],
-                lead_id=record["lead_id"],
+                to_email=(latest or record)["email"],
+                subject=(latest or record)["subject"],
+                body=(latest or record)["body"],
+                lead_id=(latest or record)["lead_id"],
                 db=db,
                 email_id=record["id"],
             )
@@ -201,7 +210,9 @@ class EmailClient:
             else:
                 stats["failed"] += 1
 
-            await asyncio.sleep(self.delay_seconds)
+            # Delay before sending the next record, but only if there is another item to process.
+            if effective_delay > 0 and index < min(len(email_records), remaining) - 1:
+                await asyncio.sleep(effective_delay)
 
         return stats
 
@@ -209,6 +220,7 @@ class EmailClient:
         return {
             "configured": self.enabled,
             "from_address_present": bool(settings.RESEND_FROM_ADDRESS.strip()),
+            "delay_seconds": self.delay_seconds,
         }
 
     async def close(self):

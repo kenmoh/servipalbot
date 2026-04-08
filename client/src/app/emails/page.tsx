@@ -166,6 +166,7 @@ export default function EmailsPage() {
             <Table>
               <TableHeader className="bg-secondary/30 border-y border-border">
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">ID</TableHead>
                   <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Recipient</TableHead>
                   <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Subject</TableHead>
                   <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Status</TableHead>
@@ -180,6 +181,9 @@ export default function EmailsPage() {
                       onClick={() => setSelectedEmail(email)}
                       className="hover:bg-secondary/50 cursor-pointer transition-colors border-b border-border/50 last:border-0"
                     >
+                      <TableCell className="py-4 text-[11px] font-mono text-muted-foreground break-all max-w-[220px]">
+                        {email.id}
+                      </TableCell>
                       <TableCell className="font-semibold text-foreground py-4 text-sm">{email.email}</TableCell>
                       <TableCell className="text-muted-foreground text-xs font-medium">{email.subject}</TableCell>
                       <TableCell>
@@ -195,7 +199,7 @@ export default function EmailsPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-sm">
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic text-sm">
                       {loading ? "Loading emails..." : "No email records found."}
                     </TableCell>
                   </TableRow>

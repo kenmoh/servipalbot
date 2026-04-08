@@ -106,6 +106,10 @@ async def get_readiness():
     return {
         "timestamp": datetime.now().isoformat(),
         "config": settings.integration_status(),
+        "runtime": {
+            "use_serpapi": settings.USE_SERPAPI,
+            "email_delay_seconds": getattr(app.state.email, "delay_seconds", settings.EMAIL_DELAY_SECONDS),
+        },
         "services": {
             "database": await app.state.db.healthcheck(),
             "ai_engine": await app.state.ai.healthcheck(),
@@ -119,10 +123,21 @@ async def get_readiness():
 @app.post("/system/settings", tags=["System"])
 async def update_settings(request: SettingsUpdateRequest):
     """Update runtime settings like USE_SERPAPI."""
-    settings.USE_SERPAPI = request.use_serpapi
+    if request.use_serpapi is not None:
+        settings.USE_SERPAPI = request.use_serpapi
+
+    if request.email_delay_seconds is not None:
+        settings.EMAIL_DELAY_SECONDS = request.email_delay_seconds
+        # Keep the live EmailClient instance in sync.
+        if hasattr(app.state, "email") and app.state.email is not None:
+            app.state.email.delay_seconds = request.email_delay_seconds
     return {
         "message": "Settings updated (runtime only)",
-        "config": settings.integration_status()
+        "config": settings.integration_status(),
+        "runtime": {
+            "use_serpapi": settings.USE_SERPAPI,
+            "email_delay_seconds": settings.EMAIL_DELAY_SECONDS,
+        },
     }
 
 
@@ -379,10 +394,12 @@ async def send_email_drafts(
     background_tasks.add_task(
         app.state.scheduler.send_email_drafts,
         email_ids=request.email_ids,
+        delay_seconds=request.delay_seconds,
     )
     return {
         "message": "Email send queued",
         "email_ids": request.email_ids,
+        "delay_seconds": request.delay_seconds,
     }
 
 

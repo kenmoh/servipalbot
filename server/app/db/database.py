@@ -497,6 +497,23 @@ class SupabaseClient:
             logger.error(f"Failed to get email messages by ids: {e}")
             return []
 
+    async def get_email_message_by_id(self, email_id: str) -> Optional[Dict]:
+        """Retrieve one email message record by id."""
+        if not self._is_ready() or not email_id:
+            return None
+        try:
+            result = (
+                self.client.table("email_messages")
+                .select("*")
+                .eq("id", email_id)
+                .limit(1)
+                .execute()
+            )
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Failed to get email message by id: {e}")
+            return None
+
     # ── Social Post Operations ────────────────────────────────────────────────
 
     async def save_social_post(self, post: SocialPostRecord) -> Optional[Dict]:

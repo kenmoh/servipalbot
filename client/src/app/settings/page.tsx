@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { Settings, AlertCircle, Save, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export default function SettingsPage() {
   const [useSerpApi, setUseSerpApi] = useState(false);
+  const [emailDelaySeconds, setEmailDelaySeconds] = useState("30");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{type: "error"|"success", text: string} | null>(null);
@@ -20,7 +22,11 @@ export default function SettingsPage() {
       const response = await fetch(`${apiBase}/system/readiness`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch settings");
       const data = await response.json();
-      setUseSerpApi(!!data.config.serpapi);
+      setUseSerpApi(!!data.runtime?.use_serpapi);
+      const delayValue = data.runtime?.email_delay_seconds;
+      if (typeof delayValue === "number" && Number.isFinite(delayValue)) {
+        setEmailDelaySeconds(String(delayValue));
+      }
     } catch (err) {
       setStatusMsg({
         type: "error",
@@ -42,7 +48,10 @@ export default function SettingsPage() {
       const response = await fetch(`${apiBase}/system/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ use_serpapi: useSerpApi })
+        body: JSON.stringify({
+          use_serpapi: useSerpApi,
+          email_delay_seconds: Number(emailDelaySeconds),
+        })
       });
       if (!response.ok) throw new Error("Failed to save settings");
       setStatusMsg({ type: "success", text: "Settings saved successfully (runtime only due to Render)" });
@@ -100,6 +109,31 @@ export default function SettingsPage() {
               {saving ? "Saving..." : "Save Settings"}
               <Save className="h-4 w-4 ml-2" />
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card">
+        <CardHeader>
+          <CardTitle className="text-lg">Email Delivery</CardTitle>
+          <CardDescription>Throttling options used when sending saved draft emails in bulk.</CardDescription>
+        </CardHeader>
+        <CardContent className={loading ? "opacity-50" : ""}>
+          <div className="flex items-center justify-between gap-6 p-4 rounded-lg border border-border/50 bg-secondary/10">
+            <div>
+              <p className="font-semibold text-foreground">Delay Between Emails (seconds)</p>
+              <p className="text-xs text-muted-foreground mt-1">Applies between draft sends to avoid provider rate limits.</p>
+            </div>
+            <div className="w-40">
+              <Input
+                inputMode="numeric"
+                type="number"
+                min={0}
+                max={600}
+                value={emailDelaySeconds}
+                onChange={(event) => setEmailDelaySeconds(event.target.value)}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -381,6 +381,7 @@ class BotScheduler:
     async def send_email_drafts(
         self,
         email_ids: List[str],
+        delay_seconds: Optional[int] = None,
     ) -> Dict:
         """Send previously generated email drafts by id."""
         drafts = await self.db.get_email_messages_by_ids(email_ids)
@@ -388,7 +389,7 @@ class BotScheduler:
             logger.info("No matching email drafts found")
             return {"sent": 0, "failed": 0, "skipped": 0}
 
-        return await self.email.send_saved_drafts(drafts, self.db)
+        return await self.email.send_saved_drafts(drafts, self.db, delay_seconds=delay_seconds)
 
     # ── Status ────────────────────────────────────────────────────────────────
 
