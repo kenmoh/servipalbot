@@ -1,0 +1,21 @@
+.env
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+.idea/
+.vscode/
+.DS_Store
+.idea/
+.idea
+
+# Node.js
+**/node_modules/
+**/node_modules_old/
+**/node_modules_retry/
+**/npm-install.log
+
+# Next.js
+**/.next/
+**/dist/
+**/build/

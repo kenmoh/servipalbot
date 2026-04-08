@@ -1,0 +1,16 @@
+[project]
+name = "servipal-bot"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.0",
+    "fastapi[standard]>=0.135.1",
+    "groq>=1.1.1",
+    "httpx>=0.28.0",
+    "pydantic-settings>=2.11.0",
+    "python-dotenv>=1.2.2",
+    "python-json-logger>=4.0.0",
+    "python-multipart>=0.0.20",
+    "supabase>=2.28.0",
+]
