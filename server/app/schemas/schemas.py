@@ -307,6 +307,13 @@ class EmailSendRequest(BaseModel):
     )
 
 
+class EmailUpdateRequest(BaseModel):
+    """Request body for PATCH /emails/{email_id} (edit draft fields)."""
+    email: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+
+
 class SocialPostRequest(BaseModel):
     """Request body for /social/post endpoint."""
     platforms: List[Literal["facebook", "instagram"]] = ["facebook", "instagram"]

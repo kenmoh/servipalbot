@@ -13,6 +13,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -28,15 +29,18 @@ type EmailRecord = {
 export default function EmailsPage() {
   const [emails, setEmails] = useState<EmailRecord[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<EmailRecord | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState({ email: "", subject: "", body: "" });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchEmails = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiBase}/emails?limit=200`, { cache: "no-store" });
-      if (!response.ok) throw new Error("Failed to fetch emails");
-      const data = await response.json();
+      setError("");
+      const data = await request<{ emails: EmailRecord[] }>("/emails?limit=200");
       setEmails(data.emails || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error loading emails");
@@ -48,6 +52,68 @@ export default function EmailsPage() {
   useEffect(() => {
     fetchEmails();
   }, []);
+
+  useEffect(() => {
+    if (!selectedEmail) return;
+    setIsEditing(false);
+    setSaveError("");
+    setDraft({
+      email: selectedEmail.email ?? "",
+      subject: selectedEmail.subject ?? "",
+      body: selectedEmail.body ?? "",
+    });
+  }, [selectedEmail]);
+
+  async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    if (!apiBase) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
+
+    const response = await fetch(`${apiBase}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(body || `Request failed with ${response.status}`);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  async function saveDraftEdits() {
+    if (!selectedEmail) return;
+
+    try {
+      setSaving(true);
+      setSaveError("");
+
+      const payload = {
+        email: draft.email.trim(),
+        subject: draft.subject.trim(),
+        body: draft.body,
+      };
+
+      const updated = await request<{ email: EmailRecord }>(`/emails/${selectedEmail.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+
+      const updatedEmail = updated.email;
+      setEmails((current) =>
+        current.map((item) => (item.id === updatedEmail.id ? { ...item, ...updatedEmail } : item))
+      );
+      setSelectedEmail((current) => (current ? { ...current, ...updatedEmail } : current));
+      setIsEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Unable to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -155,9 +221,23 @@ export default function EmailsPage() {
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+              {saveError && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  {saveError}
+                </div>
+              )}
               <div className="flex flex-col gap-1.5">
                 <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Recipient</h3>
-                <p className="text-sm font-medium text-foreground">{selectedEmail.email}</p>
+                {isEditing ? (
+                  <Input
+                    type="email"
+                    value={draft.email}
+                    onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-foreground">{selectedEmail.email}</p>
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Status</h3>
@@ -170,17 +250,62 @@ export default function EmailsPage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Subject</h3>
-                <p className="text-base font-semibold text-foreground">{selectedEmail.subject}</p>
+                {isEditing ? (
+                  <Input
+                    value={draft.subject}
+                    onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))}
+                  />
+                ) : (
+                  <p className="text-base font-semibold text-foreground">{selectedEmail.subject}</p>
+                )}
               </div>
               <div className="flex flex-col gap-2 mt-2">
                 <h3 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">Message Body</h3>
-                <div className="text-sm bg-secondary/30 p-5 rounded-xl whitespace-pre-wrap border border-border/50 text-foreground/90 leading-relaxed font-medium">
-                  {selectedEmail.body || <span className="italic text-muted-foreground">No message body available.</span>}
-                </div>
+                {isEditing ? (
+                  <textarea
+                    value={draft.body}
+                    onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))}
+                    rows={10}
+                    className="text-sm bg-secondary/30 p-5 rounded-xl whitespace-pre-wrap border border-border/50 text-foreground/90 leading-relaxed font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                ) : (
+                  <div className="text-sm bg-secondary/30 p-5 rounded-xl whitespace-pre-wrap border border-border/50 text-foreground/90 leading-relaxed font-medium">
+                    {selectedEmail.body || <span className="italic text-muted-foreground">No message body available.</span>}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="p-4 border-t border-border bg-secondary/10 flex justify-end">
-               <Button variant="outline" onClick={() => setSelectedEmail(null)}>Close panel</Button>
+            <div className="p-4 border-t border-border bg-secondary/10 flex justify-end gap-2">
+              {selectedEmail.status === "draft" && !isEditing && (
+                <Button variant="outline" onClick={() => setIsEditing(true)}>
+                  Edit draft
+                </Button>
+              )}
+              {selectedEmail.status === "draft" && isEditing && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setSaveError("");
+                      setDraft({
+                        email: selectedEmail.email ?? "",
+                        subject: selectedEmail.subject ?? "",
+                        body: selectedEmail.body ?? "",
+                      });
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={() => saveDraftEdits()} disabled={saving}>
+                    {saving ? "Saving..." : "Save changes"}
+                  </Button>
+                </>
+              )}
+              <Button variant="outline" onClick={() => setSelectedEmail(null)} disabled={saving}>
+                Close panel
+              </Button>
             </div>
           </div>
         </div>

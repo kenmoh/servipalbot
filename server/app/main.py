@@ -24,7 +24,7 @@ from app.media.social_media import SocialMediaClient
 from app.db.database import SupabaseClient
 from app.media.scheduler import BotScheduler
 from app.schemas.schemas import (
-    ScrapeRequest, OutreachRequest, EmailOutreachRequest, EmailSendRequest, SocialPostRequest,
+    ScrapeRequest, OutreachRequest, EmailOutreachRequest, EmailSendRequest, EmailUpdateRequest, SocialPostRequest,
     BotRunRequest, BotStatus, Lead, LeadImportResult, SettingsUpdateRequest, ChatRequest
 )
 from app.config.config import settings
@@ -440,6 +440,20 @@ async def get_email_messages(limit: int = Query(default=50, le=200)):
     """Retrieve recent outbound email records from Supabase."""
     emails = await app.state.db.get_email_messages(limit=limit)
     return {"count": len(emails), "emails": emails}
+
+
+@app.patch("/emails/{email_id}", tags=["Email"])
+async def update_email_message(email_id: str, request: EmailUpdateRequest):
+    """Edit a draft email record (recipient/subject/body)."""
+    updates = request.model_dump(mode="json", exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    updated = await app.state.db.update_email_message(email_id, updates, require_draft=True)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Draft email not found (or not editable)")
+
+    return {"email": updated}
 
 
 # ─── Logs ─────────────────────────────────────────────────────────────────────

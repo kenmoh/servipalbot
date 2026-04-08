@@ -81,7 +81,7 @@ class SupabaseClient:
             logger.warning("Skipping lead upsert because Supabase is not configured")
             return None
         try:
-            data = lead.model_dump(exclude_none=True, exclude={"id"})
+            data = lead.model_dump(mode="json", exclude_none=True, exclude={"id"})
             if "website" in data:
                 data["website"] = self._canonicalize_website(data.get("website"))
             # data["updated_at"] = datetime.now().isoformat()
@@ -138,7 +138,7 @@ class SupabaseClient:
             ):
                 return None
 
-            data = lead.model_dump(exclude_none=True, exclude={"id"})
+            data = lead.model_dump(mode="json", exclude_none=True, exclude={"id"})
             # data["updated_at"] = datetime.now().isoformat()
             result = self.client.table("leads").insert(data).execute()
 
@@ -320,7 +320,7 @@ class SupabaseClient:
         if not self._is_ready():
             return None
         try:
-            data = message.model_dump(exclude_none=True, exclude={"id"})
+            data = message.model_dump(mode="json", exclude_none=True, exclude={"id"})
             result = self.client.table("messages").insert(data).execute()
             return result.data[0] if result.data else None
         except Exception as e:
@@ -389,11 +389,40 @@ class SupabaseClient:
         if not self._is_ready():
             return None
         try:
-            data = email_record.model_dump(exclude_none=True, exclude={"id"})
+            # Use JSON mode so values like datetime get serialized for Supabase/httpx.
+            data = email_record.model_dump(mode="json", exclude_none=True, exclude={"id"})
             result = self.client.table("email_messages").insert(data).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Failed to save email record: {e}")
+            return None
+
+    async def update_email_message(
+        self,
+        email_id: str,
+        updates: Dict[str, Any],
+        *,
+        require_draft: bool = True,
+    ) -> Optional[Dict]:
+        """Update an email message record (typically used to edit drafts)."""
+        if not self._is_ready() or not email_id or not updates:
+            return None
+
+        allowed_fields = {"email", "subject", "body"}
+        data: Dict[str, Any] = {
+            key: value for key, value in updates.items() if key in allowed_fields and value is not None
+        }
+        if not data:
+            return None
+
+        try:
+            query = self.client.table("email_messages").update(data).eq("id", email_id)
+            if require_draft:
+                query = query.eq("status", "draft")
+            result = query.execute()
+            return result.data[0] if result.data else None
+        except Exception as e:
+            logger.error(f"Failed to update email message {email_id}: {e}")
             return None
 
     async def update_email_status(
@@ -475,7 +504,7 @@ class SupabaseClient:
         if not self._is_ready():
             return None
         try:
-            data = post.model_dump(exclude_none=True, exclude={"id"})
+            data = post.model_dump(mode="json", exclude_none=True, exclude={"id"})
             result = self.client.table("social_posts").insert(data).execute()
             return result.data[0] if result.data else None
         except Exception as e:
