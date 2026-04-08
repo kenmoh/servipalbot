@@ -18,42 +18,6 @@ import {
   CardTitle,
   CardDescription
 } from "@/components/ui/card";
-import { MoreHorizontal, Search, Filter, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
-type Lead = {
-  id: string;
-  name: string;
-  category?: string;
-  email?: string | null;
-  phone?: string | null;
-  location?: string | null;
-  source?: string;
-  status?: string;
-};
-
-interface LeadsTableProps {
-  leads: Lead[];
-}
-
-import { 
-  Badge 
-} from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
-  CardDescription
-} from "@/components/ui/card";
 import { MoreHorizontal, Search, Filter, ExternalLink, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
