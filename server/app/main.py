@@ -25,7 +25,7 @@ from app.db.database import SupabaseClient
 from app.media.scheduler import BotScheduler
 from app.schemas.schemas import (
     ScrapeRequest, OutreachRequest, EmailOutreachRequest, EmailSendRequest, SocialPostRequest,
-    BotRunRequest, BotStatus, Lead, LeadImportResult
+    BotRunRequest, BotStatus, Lead, LeadImportResult, SettingsUpdateRequest
 )
 from app.config.config import settings
 
@@ -113,6 +113,16 @@ async def get_readiness():
             "email": await app.state.email.healthcheck(),
             "social_media": await app.state.social.healthcheck(),
         },
+    }
+
+
+@app.post("/system/settings", tags=["System"])
+async def update_settings(request: SettingsUpdateRequest):
+    """Update runtime settings like USE_SERPAPI."""
+    settings.USE_SERPAPI = request.use_serpapi
+    return {
+        "message": "Settings updated (runtime only)",
+        "config": settings.integration_status()
     }
 
 

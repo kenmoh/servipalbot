@@ -346,3 +346,8 @@ class LeadImportResult(BaseModel):
     imported: int = 0
     skipped: int = 0
     errors: List[str] = Field(default_factory=list)
+
+
+class SettingsUpdateRequest(BaseModel):
+    """Request body for /system/settings endpoint."""
+    use_serpapi: bool
