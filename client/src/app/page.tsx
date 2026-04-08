@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { StatsCards } from "@/components/stats-cards";
 import { LeadsTable } from "@/components/leads-table";
 import { LogList } from "@/components/log-list";
@@ -98,7 +98,7 @@ export default function Home() {
         request<Readiness>("/system/readiness"),
         request<BotStatus>("/bot/status"),
         request<{ leads: Lead[] }>("/leads?limit=10"),
-        request<{ emails: EmailRecord[] }>("/emails?limit=10"),
+        request<{ emails: EmailRecord[] }>("/emails?limit=200"),
         request<{ logs: LogRecord[] }>("/logs?limit=8"),
       ]);
 
@@ -223,6 +223,7 @@ export default function Home() {
         setDraftCount={setDraftCount}
         draftIds={draftIds}
         setDraftIds={setDraftIds}
+        draftEmailOptions={emails.filter((email) => email.status === "draft" || email.status === "failed")}
         busy={busy}
         queueScrape={queueScrape}
         generateDrafts={generateDrafts}

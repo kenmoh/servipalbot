@@ -54,7 +54,15 @@ export default function SettingsPage() {
         })
       });
       if (!response.ok) throw new Error("Failed to save settings");
-      setStatusMsg({ type: "success", text: "Settings saved successfully (runtime only due to Render)" });
+      const saved = await response.json().catch(() => null);
+      const delayPersisted = saved?.persisted?.email_delay_seconds;
+      setStatusMsg({
+        type: "success",
+        text:
+          delayPersisted === false
+            ? "Settings updated, but delay could not be persisted (create Supabase table runtime_settings)."
+            : "Settings saved successfully",
+      });
     } catch (err) {
       setStatusMsg({
         type: "error",

@@ -280,12 +280,12 @@ export default function EmailsPage() {
               </div>
             </div>
             <div className="p-4 border-t border-border bg-secondary/10 flex justify-end gap-2">
-              {selectedEmail.status === "draft" && !isEditing && (
+              {(selectedEmail.status === "draft" || selectedEmail.status === "failed") && !isEditing && (
                 <Button variant="outline" onClick={() => setIsEditing(true)}>
-                  Edit draft
+                  Edit email
                 </Button>
               )}
-              {selectedEmail.status === "draft" && isEditing && (
+              {(selectedEmail.status === "draft" || selectedEmail.status === "failed") && isEditing && (
                 <>
                   <Button
                     variant="outline"

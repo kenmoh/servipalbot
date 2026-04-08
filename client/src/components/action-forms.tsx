@@ -17,6 +17,14 @@ import {
   ChevronRight,
   Zap
 } from "lucide-react";
+import { useMemo, useState } from "react";
+
+type DraftEmailOption = {
+  id: string;
+  email: string;
+  subject: string;
+  status: string;
+};
 
 interface ActionFormsProps {
   scrapeForm: {
@@ -29,6 +37,7 @@ interface ActionFormsProps {
   setDraftCount: (count: string) => void;
   draftIds: string;
   setDraftIds: (ids: string) => void;
+  draftEmailOptions: DraftEmailOption[];
   busy: string;
   queueScrape: () => Promise<void>;
   generateDrafts: () => Promise<void>;
@@ -42,11 +51,36 @@ export function ActionForms({
   setDraftCount,
   draftIds,
   setDraftIds,
+  draftEmailOptions,
   busy,
   queueScrape,
   generateDrafts,
   sendDrafts
 }: ActionFormsProps) {
+  const [draftPicker, setDraftPicker] = useState("");
+  const sendableEmailOptions = useMemo(
+    () => draftEmailOptions.filter((item) => item.status === "draft" || item.status === "failed"),
+    [draftEmailOptions]
+  );
+
+  const selectedDraftIds = useMemo(() => {
+    return draftIds
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }, [draftIds]);
+
+  function addDraftId(id: string) {
+    const trimmed = id.trim();
+    if (!trimmed) return;
+    if (selectedDraftIds.includes(trimmed)) return;
+    setDraftIds([...selectedDraftIds, trimmed].join(", "));
+  }
+
+  function removeDraftId(id: string) {
+    setDraftIds(selectedDraftIds.filter((item) => item !== id).join(", "));
+  }
+
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {/* Lead Discovery Section */}
@@ -142,6 +176,34 @@ export function ActionForms({
         </CardHeader>
         <CardContent className="flex flex-col gap-4 flex-1">
           <div className="space-y-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Draft Email Picker</label>
+            <select
+              value={draftPicker}
+              onChange={(event) => {
+                const selected = event.target.value;
+                setDraftPicker("");
+                if (!selected) return;
+                addDraftId(selected);
+              }}
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="" hidden>
+                Select draft(s) to send
+              </option>
+              {draftEmailOptions.length === 0 ? (
+                <option value="" disabled>
+                  No draft emails found
+                </option>
+              ) : (
+                sendableEmailOptions.map((draft) => (
+                  <option key={draft.id} value={draft.id}>
+                    [{draft.status}] {draft.email} | {draft.subject}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email IDs</label>
             <Input 
               className="bg-background border-border focus:ring-primary h-10" 
@@ -149,6 +211,22 @@ export function ActionForms({
               onChange={(e) => setDraftIds(e.target.value)}
               placeholder="e.g. 101, 102, 103"
             />
+            {selectedDraftIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedDraftIds.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => removeDraftId(id)}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-secondary/40 px-3 py-1 text-[11px] font-mono text-foreground/80 hover:bg-secondary/60"
+                    title="Remove"
+                  >
+                    <span className="max-w-[240px] truncate">{id}</span>
+                    <span className="text-muted-foreground">×</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex-1 min-h-[40px]"></div>
           <Button 

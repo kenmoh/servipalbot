@@ -57,6 +57,15 @@ async def lifespan(app: FastAPI):
         social=app.state.social,
         scraper=app.state.scraper,
     )
+
+    # Load persisted runtime settings (if present) and apply to live instances.
+    try:
+        persisted_delay = await app.state.db.get_runtime_setting("email_delay_seconds")
+        if isinstance(persisted_delay, int) and persisted_delay >= 0:
+            settings.EMAIL_DELAY_SECONDS = persisted_delay
+            app.state.email.delay_seconds = persisted_delay
+    except Exception as e:
+        logger.warning(f"Failed to load persisted runtime settings: {e}")
     logger.info("✅ All modules initialized successfully")
     yield
     await app.state.ai.close()
@@ -123,6 +132,7 @@ async def get_readiness():
 @app.post("/system/settings", tags=["System"])
 async def update_settings(request: SettingsUpdateRequest):
     """Update runtime settings like USE_SERPAPI."""
+    persisted: dict[str, bool] = {}
     if request.use_serpapi is not None:
         settings.USE_SERPAPI = request.use_serpapi
 
@@ -131,13 +141,17 @@ async def update_settings(request: SettingsUpdateRequest):
         # Keep the live EmailClient instance in sync.
         if hasattr(app.state, "email") and app.state.email is not None:
             app.state.email.delay_seconds = request.email_delay_seconds
+        persisted["email_delay_seconds"] = await app.state.db.upsert_runtime_setting(
+            "email_delay_seconds", settings.EMAIL_DELAY_SECONDS
+        )
     return {
-        "message": "Settings updated (runtime only)",
+        "message": "Settings updated",
         "config": settings.integration_status(),
         "runtime": {
             "use_serpapi": settings.USE_SERPAPI,
             "email_delay_seconds": settings.EMAIL_DELAY_SECONDS,
         },
+        "persisted": persisted,
     }
 
 
@@ -461,14 +475,14 @@ async def get_email_messages(limit: int = Query(default=50, le=200)):
 
 @app.patch("/emails/{email_id}", tags=["Email"])
 async def update_email_message(email_id: str, request: EmailUpdateRequest):
-    """Edit a draft email record (recipient/subject/body)."""
+    """Edit an email record while it is still editable (draft/failed)."""
     updates = request.model_dump(mode="json", exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    updated = await app.state.db.update_email_message(email_id, updates, require_draft=True)
+    updated = await app.state.db.update_email_message(email_id, updates, editable_statuses=["draft", "failed"])
     if not updated:
-        raise HTTPException(status_code=404, detail="Draft email not found (or not editable)")
+        raise HTTPException(status_code=404, detail="Email not found (or not editable)")
 
     return {"email": updated}
 

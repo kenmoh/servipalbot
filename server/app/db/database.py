@@ -402,7 +402,7 @@ class SupabaseClient:
         email_id: str,
         updates: Dict[str, Any],
         *,
-        require_draft: bool = True,
+        editable_statuses: Optional[List[str]] = None,
     ) -> Optional[Dict]:
         """Update an email message record (typically used to edit drafts)."""
         if not self._is_ready() or not email_id or not updates:
@@ -417,8 +417,11 @@ class SupabaseClient:
 
         try:
             query = self.client.table("email_messages").update(data).eq("id", email_id)
-            if require_draft:
-                query = query.eq("status", "draft")
+            if editable_statuses is not None:
+                editable = [s for s in editable_statuses if isinstance(s, str) and s]
+                if not editable:
+                    return None
+                query = query.in_("status", editable)
             result = query.execute()
             return result.data[0] if result.data else None
         except Exception as e:
@@ -512,6 +515,50 @@ class SupabaseClient:
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Failed to get email message by id: {e}")
+            return None
+
+    # ── Runtime Settings ─────────────────────────────────────────────────────
+
+    async def upsert_runtime_setting(self, key: str, value: Any) -> bool:
+        """
+        Persist a runtime setting in Supabase.
+
+        Requires a table named `runtime_settings` with columns:
+        - key (text primary key)
+        - value (jsonb)
+        - updated_at (timestamptz)
+        """
+        if not self._is_ready() or not key:
+            return False
+        try:
+            payload = {
+                "key": key,
+                "value": value,
+                "updated_at": datetime.now().isoformat(),
+            }
+            self.client.table("runtime_settings").upsert(payload, on_conflict="key").execute()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to upsert runtime setting {key}: {e}")
+            return False
+
+    async def get_runtime_setting(self, key: str) -> Optional[Any]:
+        """Fetch a persisted runtime setting from Supabase."""
+        if not self._is_ready() or not key:
+            return None
+        try:
+            result = (
+                self.client.table("runtime_settings")
+                .select("value")
+                .eq("key", key)
+                .limit(1)
+                .execute()
+            )
+            if not result.data:
+                return None
+            return result.data[0].get("value")
+        except Exception as e:
+            logger.error(f"Failed to get runtime setting {key}: {e}")
             return None
 
     # ── Social Post Operations ────────────────────────────────────────────────
