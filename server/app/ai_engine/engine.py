@@ -6,10 +6,9 @@ Handles all AI inference for:
 2. WhatsApp message generation
 3. Social media post generation
 
-Provider: Groq (free tier)
-- Sign up: https://console.groq.com
-- Free: ~14,400 requests/day
-- Models: llama3-8b-8192 (fast) | llama3-70b-8192 (smarter) | mixtral-8x7b-32768 (best JSON)
+Provider: Google Gemini (AI Studio free tier)
+- Sign up: https://aistudio.google.com/apikey
+- Default model: gemini-3.5-flash-lite (override with GEMINI_MODEL)
 
 Uses Pydantic models to validate and structure AI outputs.
 """
@@ -20,7 +19,7 @@ import re
 import unicodedata
 from typing import Optional
 
-import httpx
+from google import genai
 
 from app.config.config import settings
 from app.schemas.schemas import (
@@ -31,6 +30,10 @@ from app.schemas.schemas import (
 )
 
 logger = logging.getLogger("servipal_bot.ai_engine")
+
+client: Optional["genai.Client"] = (
+    genai.Client(api_key=settings.GEMINI_API_KEY) if settings.gemini_configured else None
+)
 
 # ── Prompt Templates ──────────────────────────────────────────────────────────
 
@@ -81,28 +84,82 @@ Respond ONLY with valid JSON matching this exact structure:
   "best_posting_time": "12:00"
 }}"""
 
-COLD_EMAIL_PROMPT = """You are writing a real cold email to a business owner.
+COLD_EMAIL_PROMPT = """
+You are writing a genuine one-to-one cold email from Kenneth, who is reaching out personally on behalf of ServiPal.
 
-Write a short, natural business outreach email. The email should:
-- Sound human and direct
-- Avoid emojis, long dashes, buzzwords, and generic AI wording
-- Avoid exaggerated claims and corporate-sounding filler
-- Stay between 90-170 words
-- Mention one practical reason the business might care
-- End with a simple low-pressure question
+The goal is to start a natural conversation with a local business owner, not to write a marketing or promotional email.
+
+Write a short, personal, conversational email that feels like Kenneth actually found and considered this specific business before reaching out.
+
+Rules:
+- Sound like a real person, not a sales campaign or AI-generated message.
+- Keep the tone warm, simple, and professional.
+- Personalize the email using the business name, business type, and location naturally.
+- Mention one specific practical reason ServiPal could be useful to this particular business.
+- Do not make exaggerated claims or promise increased sales, revenue, or customer numbers.
+- Do not use buzzwords such as "revolutionize", "seamless", "unlock", "empower", "grow your business", "leverage", "innovative", or "game-changer".
+- Do not use emojis.
+- Do not use long dashes.
+- Do not use generic openings such as "I hope this email finds you well", "Dear Esteemed Business Owner", or "I am reaching out to introduce".
+- Do not make the email sound like a newsletter, advertisement, or mass campaign.
+- Avoid excessive descriptions of ServiPal.
+- Do not include a website link in the first email unless specifically requested.
+- Do not use bullet points.
+- Keep the email between 80 and 140 words.
+- Use short paragraphs with natural spacing.
+- Mention that Kenneth is reaching out personally on behalf of ServiPal.
+- If the business name sounds like a brand rather than a person's name, address the team naturally, for example "Hi Washyard team," or "Hi RSVP team,".
+- Do not pretend to know anything about the business that was not provided.
+- Do not invent details, reviews, customers, services, achievements, or history.
+- End with a simple, low-pressure question that makes replying easy.
+- The email should feel appropriate for a first contact where the recipient does not know Kenneth yet.
+
+Location personalization:
+- Never include the full business address in the email.
+- Extract only the most recognizable street, neighborhood, district, or area name from the provided location.
+- Prefer the street name when it is clear and natural.
+- If the street name is not useful or recognizable, use the neighborhood or district instead.
+- Never include postal codes, state names, country names, or long address strings unless they are genuinely necessary.
+- Keep the location reference conversational.
+- Examples:
+  - "47 Allen Ave, Allen, Ikeja 101233, Lagos, Nigeria" → "Allen Ave"
+  - "9 Eletu Ogabi St, Victoria Island, Lagos 101001, Lagos, Nigeria" → "Eletu Ogabi St" or "Victoria Island"
+  - "5/7 St Finbarr's College Rd, Akoka, Lagos 100001, Lagos, Nigeria" → "St Finbarr's College Rd" or "Akoka"
+- Do not force a location mention if it makes the email sound unnatural.
 
 Business Details:
 - Name: {vendor_name}
 - Business Type: {category}
 - Location: {location}
-- Platform benefit: {platform_benefit}
+- Platform Benefit: {platform_benefit}
+
+Before writing, silently identify:
+1. What this particular business does.
+2. Why ServiPal's stated platform benefit could reasonably matter to them.
+3. The most natural short location reference to use, if a location reference is useful.
+
+Then write the email.
+
+Subject rules:
+- 3 to 8 words.
+- Natural and conversational.
+- Do not use clickbait, urgency, promotional language, or excessive capitalization.
+- Avoid words such as "offer", "deal", "opportunity", "promotion", "boost", "sales", or "partnership".
+- The subject should sound like something a person would actually type when contacting one business.
+  prefer a conversational subject in the format “Quick question for {vendor_name}”. Keep it natural and personal, and avoid formal wording such as “regarding”, “inquiry”, “business opportunity”, or “partnership”.
 
 Respond ONLY with valid JSON matching this exact structure:
 {{
-  "subject": "string (5-12 words, simple and natural)",
-  "body": "string (full email body)",
-  "full_email": "string (complete final email)"
-}}"""
+  "subject": "string",
+  "body": "string",
+  "full_email": "string"
+}}
+
+The "body" must contain only the email body, including the sign-off.
+
+The "full_email" must contain the subject followed by the complete email body.
+
+Do not wrap the JSON in markdown code fences."""
 
 CLASSIFICATION_PROMPT = """You are a lead quality analyst for ServiPal, a service platform for local businesses.
 
@@ -147,98 +204,46 @@ CATEGORY_BENEFITS = {
 
 class AIEngine:
     """
-    AI inference engine using Groq free tier.
-    Falls back to Ollama if AI_PROVIDER=ollama is set.
+    AI inference engine using the Google Gemini API.
     All outputs validated using Pydantic models.
     """
 
     def __init__(self):
-        self.provider = settings.AI_PROVIDER
-        self.client = httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT)
-        self.enabled = True
-
-        if self.provider == "groq":
-            self.model    = settings.GROQ_MODEL
-            self.base_url = settings.GROQ_BASE_URL
-            self.headers  = {
-                "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-                "Content-Type":  "application/json",
-            }
-            self.enabled = settings.groq_configured
-        else:  # ollama
-            self.model    = settings.OLLAMA_MODEL
-            self.base_url = settings.OLLAMA_BASE_URL
-            self.headers  = {"Content-Type": "application/json"}
+        self.provider = "gemini"
+        self.model    = settings.GEMINI_MODEL
+        self.client   = client
+        self.enabled  = self.client is not None
 
         if self.enabled:
-            logger.info(f"AI Engine ready: provider={self.provider} model={self.model}")
+            logger.info(f"AI Engine ready: provider=gemini model={self.model}")
         else:
-            logger.warning("AI provider is not fully configured; fallback content will be used")
+            logger.warning("Gemini API key not configured; fallback content will be used")
 
     # ── LLM Call ──────────────────────────────────────────────────────────────
 
     async def _call_llm(self, prompt: str, max_tokens: int = 600) -> Optional[str]:
-        """Route call to configured LLM and return raw text."""
+        """Call Gemini and return raw text."""
         if not self.enabled:
             return None
         try:
-            if self.provider == "groq":
-                return await self._call_groq(prompt, max_tokens)
-            else:
-                return await self._call_ollama(prompt, max_tokens)
+            return await self._call_gemini(prompt, max_tokens)
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             return None
 
-    async def _call_groq(self, prompt: str, max_tokens: int) -> Optional[str]:
+    async def _call_gemini(self, prompt: str, max_tokens: int) -> Optional[str]:
         """
-        Call Groq Chat Completions API.
-        Free tier: ~14,400 req/day on llama3-8b-8192.
-        Docs: https://console.groq.com/docs/openai
+        Call the Gemini API via the Interactions API.
+        JSON output is enforced with response_format so _extract_json stays clean.
+        Docs: https://aistudio.google.com/docs/get-started
         """
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": 0.7,
-            "response_format": {"type": "json_object"},  # Forces clean JSON output
-        }
-        response = await self.client.post(
-            f"{self.base_url}/chat/completions",
-            headers=self.headers,
-            json=payload,
+        interaction = await self.client.aio.interactions.create(
+            model=self.model,
+            input=prompt,
+            response_format={"type": "text", "mime_type": "application/json"},
+            generation_config={"max_output_tokens": max_tokens},
         )
-
-        if response.status_code == 429:
-            logger.warning("Groq rate limit hit — backing off 60s")
-            import asyncio
-            await asyncio.sleep(60)
-            response = await self.client.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json=payload,
-            )
-
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
-
-    async def _call_ollama(self, prompt: str, max_tokens: int) -> Optional[str]:
-        """Call local Ollama instance (offline fallback)."""
-        payload = {
-            "model":   self.model,
-            "prompt":  prompt,
-            "stream":  False,
-            "format":  "json",
-            "options": {"temperature": 0.7, "num_predict": max_tokens},
-        }
-        response = await self.client.post(
-            f"{self.base_url}/api/generate",
-            headers=self.headers,
-            json=payload,
-        )
-        response.raise_for_status()
-        return response.json().get("response", "")
+        return interaction.output_text
 
     # ── JSON Extraction ───────────────────────────────────────────────────────
 
@@ -521,7 +526,8 @@ class AIEngine:
         return ColdEmail(subject=subject, body=body, full_email=body)
 
     async def close(self):
-        await self.client.aclose()
+        if self.client is not None:
+            await self.client.aio.aclose()
 
     async def healthcheck(self) -> dict:
         return {
@@ -541,38 +547,13 @@ class AIEngine:
         )
 
         try:
-            if self.provider == "groq":
-                payload = {
-                    "model": self.model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": message}
-                    ],
-                    "max_tokens": 1000,
-                    "temperature": 0.5,
-                }
-                response = await self.client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=self.headers,
-                    json=payload,
-                )
-                response.raise_for_status()
-                return response.json()["choices"][0]["message"]["content"]
-            else:
-                payload = {
-                    "model": self.model,
-                    "prompt": f"{system_prompt}\n\nUser: {message}\n\nAssistant:",
-                    "stream": False,
-                    "options": {"temperature": 0.5, "num_predict": 1000},
-                }
-                response = await self.client.post(
-                    f"{self.base_url}/api/generate",
-                    headers=self.headers,
-                    json=payload,
-                )
-                response.raise_for_status()
-                return response.json().get("response", "")
+            interaction = await self.client.aio.interactions.create(
+                model=self.model,
+                system_instruction=system_prompt,
+                input=message,
+                generation_config={"max_output_tokens": 1000},
+            )
+            return interaction.output_text or ""
         except Exception as e:
-            import logging
-            logging.getLogger("servipal_bot.ai_engine").error(f"Chat completion failed: {e}")
+            logger.error(f"Chat completion failed: {e}")
             return f"Error communicating with AI model: {str(e)}"

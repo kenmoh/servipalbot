@@ -164,12 +164,23 @@ class SupabaseClient:
     async def get_leads(
         self,
         status: Optional[str] = None,
+        category: Optional[str] = None,
         limit: int = 50,
         has_phone: bool = False,
+        has_email: bool = False,
+        search: Optional[str] = None,
+        order: str = "asc",
     ) -> List[Dict]:
         """
-        Retrieve leads with optional status filter.
-        By default returns all leads. Set has_phone=True for WhatsApp-ready leads only.
+        Retrieve leads with optional filters.
+
+        - status: filter by lead status
+        - category: case-insensitive exact match on lead category
+        - has_phone / has_email: only leads with that contact field set
+        - search: case-insensitive substring match on name, email, phone, website
+          or instagram handle
+        - order: "asc" (oldest first - used by outreach batching) or
+          "desc" (newest first - used by dashboards)
         """
         if not self._is_ready():
             return []
@@ -178,15 +189,43 @@ class SupabaseClient:
 
             if status:
                 query = query.eq("status", status)
+            if category and category.strip():
+                query = query.ilike("category", category.strip())
             if has_phone:
                 query = query.not_.is_("phone", "null")
+            if has_email:
+                query = query.not_.is_("email", "null")
+            if search:
+                term = search.strip()
+                if term:
+                    pattern = f"*{term}*"
+                    query = query.or_(
+                        f"name.ilike.{pattern},email.ilike.{pattern},phone.ilike.{pattern},"
+                        f"website.ilike.{pattern},instagram_handle.ilike.{pattern}"
+                    )
 
-            query = query.order("created_at", desc=False).limit(limit)
+            query = query.order("created_at", desc=(order == "desc")).limit(limit)
             result = query.execute()
             return result.data or []
 
         except Exception as e:
             logger.error(f"Failed to get leads: {e}")
+            return []
+
+    async def get_lead_categories(self) -> List[str]:
+        """Distinct lead categories (case-insensitive dedupe), sorted for filter dropdowns."""
+        if not self._is_ready():
+            return []
+        try:
+            result = self.client.table("leads").select("category").execute()
+            seen: Dict[str, str] = {}
+            for row in result.data or []:
+                value = (row.get("category") or "").strip()
+                if value:
+                    seen.setdefault(value.lower(), value)
+            return sorted(seen.values(), key=str.lower)
+        except Exception as e:
+            logger.error(f"Failed to get lead categories: {e}")
             return []
 
     async def update_lead_status(self, lead_id: str, status: str, **kwargs) -> bool:
@@ -588,8 +627,9 @@ class SupabaseClient:
         if not self._is_ready():
             return False
         try:
-            # data = {"updated_at": datetime.now().isoformat()}
-            data.update(kwargs)
+            data = dict(kwargs)
+            if not data:
+                return False
             self.client.table("social_posts").update(data).eq("id", post_id).execute()
             return True
         except Exception as e:

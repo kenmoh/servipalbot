@@ -16,7 +16,12 @@ from datetime import datetime
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Query, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.scraper.scraper import LeadScraper, BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except ImportError:  # pragma: no cover - optional dependency during setup
+    BeautifulSoup = None
+
+from app.scraper.scraper import LeadScraper
 from app.ai_engine.engine import AIEngine
 from app.media.whatsapp import WhatsAppClient
 from app.media.email_client import EmailClient
@@ -102,7 +107,7 @@ async def health_check():
         "version": "1.0.0",
         "modules": {
             "database": "connected" if app.state.db.enabled else "not_configured",
-            "ai_engine": settings.AI_PROVIDER if app.state.ai.enabled else "fallback_only",
+            "ai_engine": "gemini" if app.state.ai.enabled else "fallback_only",
             "whatsapp": "ready" if app.state.whatsapp.enabled else "not_configured",
             "social_media": "ready" if app.state.social.enabled else "not_configured",
         },
@@ -218,7 +223,7 @@ async def scrape_leads(
     if "google_maps" in request.sources and not settings.serpapi_configured and BeautifulSoup is None:
         raise HTTPException(
             status_code=400,
-            detail="google_maps scraping requires SerpAPI or beautifulsoup4 (direct scraping fallback), but neither is available",
+            detail="google_maps scraping requires SerpAPI or beautifulsoup4 (DuckDuckGo search fallback), but neither is available",
         )
 
     background_tasks.add_task(
@@ -239,10 +244,17 @@ async def scrape_leads(
 @app.get("/leads", tags=["Lead Generation"])
 async def get_leads(
     status: str = Query(default=None, description="Filter by status: new/contacted/responded"),
+    category: str = Query(default=None, description="Filter by lead category (case-insensitive exact match)"),
     limit: int = Query(default=50, le=200),
     has_phone: bool = Query(default=False, description="If true, only return leads with phone numbers"),
+    has_email: bool = Query(default=False, description="If true, only return leads with email addresses"),
+    search: str = Query(default=None, description="Substring search across name, email, phone, website, instagram handle"),
+    order: str = Query(default="desc", description="Sort by creation date: desc (newest first) or asc"),
 ):
-    """Retrieve leads from Supabase with optional status filter."""
+    """Retrieve leads from Supabase with optional filters. Dashboard defaults to newest first."""
+    if order not in ("asc", "desc"):
+        raise HTTPException(status_code=400, detail="order must be 'asc' or 'desc'")
+
     readiness = await app.state.db.healthcheck()
     if not readiness.get("configured"):
         raise HTTPException(status_code=503, detail="Supabase is not configured")
@@ -252,8 +264,32 @@ async def get_leads(
             detail=f"Supabase is not reachable: {readiness.get('error', 'healthcheck failed')}",
         )
 
-    leads = await app.state.db.get_leads(status=status, limit=limit, has_phone=has_phone)
+    leads = await app.state.db.get_leads(
+        status=status,
+        category=category,
+        limit=limit,
+        has_phone=has_phone,
+        has_email=has_email,
+        search=search,
+        order=order,
+    )
     return {"count": len(leads), "leads": leads}
+
+
+@app.get("/leads/categories", tags=["Lead Generation"])
+async def get_lead_categories():
+    """Distinct lead categories for dashboard filter dropdowns."""
+    readiness = await app.state.db.healthcheck()
+    if not readiness.get("configured"):
+        raise HTTPException(status_code=503, detail="Supabase is not configured")
+    if not readiness.get("reachable"):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Supabase is not reachable: {readiness.get('error', 'healthcheck failed')}",
+        )
+
+    categories = await app.state.db.get_lead_categories()
+    return {"count": len(categories), "categories": categories}
 
 
 @app.post("/leads/enrich/emails", tags=["Lead Generation"])

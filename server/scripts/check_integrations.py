@@ -26,23 +26,13 @@ from app.media.social_media import SocialMediaClient
 from app.media.whatsapp import WhatsAppClient
 
 
-async def check_groq_live(ai: AIEngine) -> dict[str, Any]:
-    if not ai.enabled or ai.provider != "groq":
+async def check_gemini_live(ai: AIEngine) -> dict[str, Any]:
+    if not ai.enabled:
         return {"configured": False, "reachable": False}
 
     try:
-        response = await ai.client.post(
-            f"{settings.GROQ_BASE_URL}/chat/completions",
-            headers=ai.headers,
-            json={
-                "model": settings.GROQ_MODEL,
-                "messages": [{"role": "user", "content": "Reply with valid JSON: {\"ok\":true}"}],
-                "max_tokens": 20,
-                "response_format": {"type": "json_object"},
-            },
-        )
-        response.raise_for_status()
-        return {"configured": True, "reachable": True, "status_code": response.status_code}
+        text = await ai._call_gemini('Reply with valid JSON: {"ok":true}', max_tokens=64)
+        return {"configured": True, "reachable": bool(text), "response": (text or "")[:120]}
     except Exception as e:
         return {"configured": True, "reachable": False, "error": str(e)[:200]}
 
@@ -93,7 +83,7 @@ async def main(live: bool) -> None:
         }
 
         if live:
-            report["groq_live"] = await check_groq_live(ai)
+            report["gemini_live"] = await check_gemini_live(ai)
             report["whatsapp_live"] = await check_whatsapp_live(whatsapp)
             report["meta_live"] = await check_meta_live(social)
 

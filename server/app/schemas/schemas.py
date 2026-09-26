@@ -161,8 +161,8 @@ class Lead(BaseModel):
     phone: Optional[str] = Field(None, description="Phone number with country code")
     email: Optional[str] = None
     location: Optional[str] = None
-    source: Literal["google_maps", "instagram", "marketplace", "manual"] = "manual"
-    status: Literal["new", "contacted", "delivered", "replied", "converted", "unsubscribed"] = "new"
+    source: Literal["google_maps", "instagram", "marketplace", "osm", "manual"] = "manual"
+    status: Literal["new", "contacted", "delivered", "read", "replied", "converted", "unsubscribed"] = "new"
     quality_score: Optional[float] = None
     priority: Optional[str] = None
     instagram_handle: Optional[str] = None
@@ -254,7 +254,7 @@ class ActivityLog(BaseModel):
 
 class ScrapeRequest(BaseModel):
     """Request body for /scrape/leads endpoint."""
-    sources: List[Literal["google_maps", "instagram", "marketplace"]] = ["google_maps"]
+    sources: List[Literal["google_maps", "instagram", "marketplace", "osm"]] = ["google_maps"]
     categories: List[str] = Field(
         default=["restaurant", "laundry", "delivery", "grocery"],
         description="Business categories to scrape",

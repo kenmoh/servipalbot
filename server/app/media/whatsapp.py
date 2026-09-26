@@ -341,18 +341,23 @@ class WhatsAppClient:
 
                         if from_phone:
                             logger.info(f"💬 Reply from {from_phone}: {msg_text[:50]}")
-                            # Find lead by phone and mark as replied
-                            leads = await db.get_leads(limit=1)
-                            for lead in leads:
-                                if lead.get("phone", "").lstrip("+") == from_phone:
-                                    await db.update_lead_status(lead["id"], "replied")
-                                    await db.log_activity(
-                                        event_type="whatsapp_reply",
-                                        level="info",
-                                        message=f"Reply received from {from_phone}",
-                                        module="whatsapp",
-                                        details={"text": msg_text[:200]},
-                                    )
+                            # Webhook phones arrive without '+' (e.g. 2347049...);
+                            # stored leads use E.164 with '+'. Try both forms.
+                            lead = await db.get_lead_by_phone(f"+{from_phone.lstrip('+')}")
+                            if not lead:
+                                lead = await db.get_lead_by_phone(from_phone)
+
+                            if lead and lead.get("id"):
+                                await db.update_lead_status(lead["id"], "replied")
+                                await db.log_activity(
+                                    event_type="whatsapp_reply",
+                                    level="info",
+                                    message=f"Reply received from {from_phone}",
+                                    module="whatsapp",
+                                    details={"text": msg_text[:200], "lead_id": lead["id"]},
+                                )
+                            else:
+                                logger.info(f"  Reply from unknown number {from_phone} (no matching lead)")
 
         except Exception as e:
             logger.error(f"❌ Webhook processing error: {e}")

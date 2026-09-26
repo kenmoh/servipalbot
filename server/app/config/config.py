@@ -5,6 +5,7 @@ All environment variables loaded via Pydantic BaseSettings.
 Copy env.example.txt to .env and fill in your credentials.
 """
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 from typing import Literal
 
@@ -19,15 +20,14 @@ class Settings(BaseSettings):
     APP_ENV:   Literal["development", "production"] = "development"
     LOG_LEVEL: str = "INFO"
 
-    # ── AI Provider ───────────────────────────────────────────────────────────
-    # "groq" = free cloud (recommended) | "ollama" = local
-    AI_PROVIDER: Literal["groq", "ollama"] = "groq"
-
-    # Groq — free tier, ~14,400 req/day
-    # Sign up: https://console.groq.com → API Keys → Create
-    GROQ_API_KEY: str = "your_groq_api_key_here"
-    GROQ_MODEL:   str = "llama3-8b-8192"           # Fast & free
-    GROQ_BASE_URL:str = "https://api.groq.com/openai/v1"
+    # ── AI (Gemini only) ──────────────────────────────────────────────────────
+    # Sign up: https://aistudio.google.com/apikey
+    # Accepts either GEMINI_API_KEY or GOOGLE_API_KEY from the environment.
+    GEMINI_API_KEY: str = Field(
+        default="",
+        validation_alias=AliasChoices("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    )
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
 
 
     # ── Supabase ──────────────────────────────────────────────────────────────
@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     USE_SERPAPI: bool = False
     SERPAPI_KEY: str
 
+    # Experimental OpenStreetMap (Overpass) source. Off by default; when enabled
+    # it never fails the run - errors are logged and the source returns 0 leads.
+    SCRAPER_OVERPASS_ENABLED: bool = False
+    SCRAPER_OVERPASS_URL:    str  = "https://overpass-api.de/api/interpreter"
+
+    # Cap on Instagram profile-enrichment calls per scrape run (public web API).
+    SCRAPER_INSTAGRAM_MAX_PROFILES: int = 12
+
     # ── Bot Behaviour ─────────────────────────────────────────────────────────
     BOT_NAME:              str = "ServiPal"
     BOT_TIMEZONE:          str = "Africa/Lagos"
@@ -74,6 +82,7 @@ class Settings(BaseSettings):
         env_file          = ".env"
         env_file_encoding = "utf-8"
         case_sensitive    = True
+        extra             = "ignore"  # tolerate unrelated env vars users keep in .env
 
     @staticmethod
     def _is_placeholder(value: str) -> bool:
@@ -87,8 +96,8 @@ class Settings(BaseSettings):
         )
 
     @property
-    def groq_configured(self) -> bool:
-        return self.AI_PROVIDER != "groq" or not self._is_placeholder(self.GROQ_API_KEY)
+    def gemini_configured(self) -> bool:
+        return not self._is_placeholder(self.GEMINI_API_KEY)
 
     @property
     def supabase_configured(self) -> bool:
@@ -123,9 +132,13 @@ class Settings(BaseSettings):
     def serpapi_configured(self) -> bool:
         return self.USE_SERPAPI and not self._is_placeholder(self.SERPAPI_KEY)
 
+    @property
+    def overpass_enabled(self) -> bool:
+        return self.SCRAPER_OVERPASS_ENABLED and bool(self.SCRAPER_OVERPASS_URL.strip())
+
     def integration_status(self) -> dict[str, bool]:
         return {
-            "groq": self.groq_configured,
+            "gemini": self.gemini_configured,
             "supabase": self.supabase_configured,
             "whatsapp": self.whatsapp_configured,
             "meta": self.meta_configured,
