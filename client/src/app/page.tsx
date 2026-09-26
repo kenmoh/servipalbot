@@ -184,7 +184,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto pb-10">
+    <div className="flex flex-col gap-6 max-w-350 mx-auto pb-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

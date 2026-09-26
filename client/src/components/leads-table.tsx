@@ -1,25 +1,35 @@
 "use client";
 
-import { 
-  Badge 
+import {
+  Badge
 } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
+import {
+  Card,
+  CardContent,
+  CardHeader,
   CardTitle,
   CardDescription
 } from "@/components/ui/card";
-import { MoreHorizontal, Search, Filter, ExternalLink, Globe } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search, ExternalLink, Globe } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+export const LEAD_STATUSES = [
+  "new",
+  "contacted",
+  "delivered",
+  "read",
+  "replied",
+  "converted",
+  "unsubscribed",
+] as const;
 
 type Lead = {
   id: string;
@@ -35,26 +45,78 @@ type Lead = {
 
 interface LeadsTableProps {
   leads: Lead[];
+  /** When provided, renders functional search/filter controls bound to these values. */
+  search?: string;
+  onSearchChange?: (value: string) => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (value: string) => void;
+  categoryFilter?: string;
+  onCategoryFilterChange?: (value: string) => void;
+  /** Distinct categories for the category dropdown. */
+  categories?: string[];
 }
 
-export function LeadsTable({ leads }: LeadsTableProps) {
+export function LeadsTable({
+  leads,
+  search,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  categoryFilter,
+  onCategoryFilterChange,
+  categories,
+}: LeadsTableProps) {
+  const hasControls =
+    typeof onSearchChange === "function" ||
+    typeof onStatusFilterChange === "function" ||
+    typeof onCategoryFilterChange === "function";
+
   return (
     <Card className="border-border bg-card overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
         <div>
           <CardTitle className="text-xl font-bold text-foreground">Recent Leads</CardTitle>
           <CardDescription className="text-muted-foreground text-xs">A list of the latest potential customers discovered.</CardDescription>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 gap-1 text-[10px] border-border bg-background hover:bg-secondary">
-            <Search className="h-3 w-3" />
-            Search
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1 text-[10px] border-border bg-background hover:bg-secondary">
-            <Filter className="h-3 w-3" />
-            Filter
-          </Button>
-        </div>
+        {hasControls && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                value={search ?? ""}
+                onChange={(e) => onSearchChange?.(e.target.value)}
+                placeholder="Search by email or phone..."
+                className="h-9 w-56 pl-8 text-xs bg-background border-border focus:ring-primary"
+              />
+            </div>
+            <select
+              value={categoryFilter ?? ""}
+              onChange={(e) => onCategoryFilterChange?.(e.target.value)}
+              className="h-9 rounded-md border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label="Filter by category"
+            >
+              <option value="">All categories</option>
+              {(categories ?? []).map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+            <select
+              value={statusFilter ?? ""}
+              onChange={(e) => onStatusFilterChange?.(e.target.value)}
+              className="h-9 rounded-md border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label="Filter by status"
+            >
+              <option value="">All statuses</option>
+              {LEAD_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -66,7 +128,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3 w-[200px]">Website</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Contact</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Status</TableHead>
-                <TableHead className="text-right font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Actions</TableHead>
+                <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Source</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -77,9 +139,9 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     <TableCell className="text-muted-foreground text-xs">{lead.category}</TableCell>
                     <TableCell>
                       {lead.website ? (
-                        <a 
-                          href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} 
-                          target="_blank" 
+                        <a
+                          href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 text-primary hover:underline text-xs group"
                         >
@@ -92,11 +154,13 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
-                      {lead.email ? (
+                      {lead.email || lead.phone ? (
                         <div className="flex flex-col gap-0.5">
-                          <span className="flex items-center gap-1 text-foreground/80 font-medium">
-                            {lead.email}
-                          </span>
+                          {lead.email && (
+                            <span className="flex items-center gap-1 text-foreground/80 font-medium">
+                              {lead.email}
+                            </span>
+                          )}
                           <span className="text-[10px] opacity-60">{lead.phone || lead.location}</span>
                         </div>
                       ) : (
@@ -104,21 +168,20 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-tight ${
                           lead.status === 'contacted' ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' :
                           lead.status === 'replied' ? 'bg-blue-400/10 text-blue-400 border-blue-400/20' :
+                          lead.status === 'converted' ? 'bg-emerald-400/20 text-emerald-300 border-emerald-400/30' :
                           'bg-secondary text-muted-foreground border-border'
                         }`}
                       >
                         {lead.status || 'New'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-secondary">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="text-muted-foreground text-[10px] uppercase tracking-wide">
+                      {(lead.source || '').replace('_', ' ') || '—'}
                     </TableCell>
                   </TableRow>
                 ))

@@ -149,7 +149,7 @@ export default function EmailsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px] mx-auto pb-10 relative">
+    <div className="flex flex-col gap-6 max-w-350 mx-auto pb-10 relative">
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
           <Mail className="h-6 w-6 text-primary" />
@@ -184,7 +184,7 @@ export default function EmailsPage() {
                       onClick={() => setSelectedEmail(email)}
                       className="hover:bg-secondary/50 cursor-pointer transition-colors border-b border-border/50 last:border-0"
                     >
-                      <TableCell className="py-4 text-[11px] font-mono text-muted-foreground break-all max-w-[220px]">
+                      <TableCell className="py-4 text-[11px] font-mono text-muted-foreground break-all max-w-55">
                         {email.id}
                       </TableCell>
                       <TableCell className="font-semibold text-foreground py-4 text-sm">{email.email}</TableCell>
