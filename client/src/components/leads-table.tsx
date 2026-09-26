@@ -125,7 +125,7 @@ export function LeadsTable({
               <TableRow className="hover:bg-transparent">
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Name</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Category</TableHead>
-                <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3 w-[200px]">Website</TableHead>
+                <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3 w-50">Website</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Contact</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Status</TableHead>
                 <TableHead className="font-bold text-foreground text-[10px] uppercase tracking-wider py-3">Source</TableHead>

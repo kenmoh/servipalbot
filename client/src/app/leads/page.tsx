@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LeadsTable } from "@/components/leads-table";
-import { Users, AlertCircle, RefreshCcw } from "lucide-react";
+import { Users, AlertCircle, RefreshCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -21,6 +21,20 @@ type Lead = {
 
 const PAGE_SIZE = 200;
 
+function getExportPhoneNumbers(leads: Lead[]) {
+  const phoneNumbers = new Set<string>();
+
+  for (const lead of leads) {
+    let phone = (lead.phone || "").replace(/\D/g, "");
+    if (phone.startsWith("234")) phone = phone.slice(3);
+    if (phone.startsWith("+234")) phone = phone.slice(4);
+    if (phone.startsWith("0")) phone = phone.slice(1);
+    if (phone) phoneNumbers.add(phone);
+  }
+
+  return Array.from(phoneNumbers);
+}
+
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -29,6 +43,19 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+
+  const exportPhones = () => {
+    const phoneNumbers = getExportPhoneNumbers(leads);
+    if (phoneNumbers.length === 0) return;
+
+    const file = new Blob([`${phoneNumbers.join("\n")}\n`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "phone-numbers.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const fetchLeads = useCallback(async (searchTerm: string, status: string, category: string) => {
     setLoading(true);
@@ -92,15 +119,26 @@ export default function LeadsPage() {
           </h1>
           <p className="text-muted-foreground text-xs mt-1 font-medium italic">Complete list of generated leads, newest first</p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => fetchLeads(search, statusFilter, categoryFilter)}
-          disabled={loading}
-          className="border-border bg-card hover:bg-secondary text-foreground text-xs h-9 gap-2 shadow-sm"
-        >
-          <RefreshCcw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={exportPhones}
+            disabled={loading || getExportPhoneNumbers(leads).length === 0}
+            className="border-border bg-card hover:bg-secondary text-foreground text-xs h-9 gap-2 shadow-sm"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => fetchLeads(search, statusFilter, categoryFilter)}
+            disabled={loading}
+            className="border-border bg-card hover:bg-secondary text-foreground text-xs h-9 gap-2 shadow-sm"
+          >
+            <RefreshCcw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
       {error && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium">

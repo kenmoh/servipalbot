@@ -513,15 +513,17 @@ class AIEngine:
         benefit: str,
     ) -> ColdEmail:
         """Fallback cold email when AI generation fails."""
-        subject = f"A quick partnership idea for {vendor_name}"
+        subject = f"A quick question for {vendor_name}"
         body = (
             f"Hi {vendor_name} team,\n\n"
             f"I wanted to reach out because we're building ServiPal for businesses in {location}. "
             f"For {category} businesses, the goal is simple: {benefit}.\n\n"
             f"I thought your business could be a good fit, and I wanted to ask if you'd be open "
             f"to a short overview of how it works.\n\n"
-            f"Best,\n"
+            f"Best regards,\n"
+            f"Kenneth A,\n"
             f"{settings.BOT_NAME}"
+            f"https://www.servi-pal.com/"
         )
         return ColdEmail(subject=subject, body=body, full_email=body)
 
