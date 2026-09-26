@@ -29,7 +29,7 @@ function getExportPhoneNumbers(leads: Lead[]) {
     if (phone.startsWith("234")) phone = phone.slice(3);
     if (phone.startsWith("+234")) phone = phone.slice(4);
     if (phone.startsWith("0")) phone = phone.slice(1);
-    if (phone) phoneNumbers.add(phone);
+    if (phone.length === 10) phoneNumbers.add(phone);
   }
 
   return Array.from(phoneNumbers);
