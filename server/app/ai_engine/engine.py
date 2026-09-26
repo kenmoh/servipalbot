@@ -141,12 +141,12 @@ Before writing, silently identify:
 Then write the email.
 
 Subject rules:
-- 3 to 8 words.
+- 3 to 5 words.
 - Natural and conversational.
 - Do not use clickbait, urgency, promotional language, or excessive capitalization.
 - Avoid words such as "offer", "deal", "opportunity", "promotion", "boost", "sales", or "partnership".
 - The subject should sound like something a person would actually type when contacting one business.
-  prefer a conversational subject in the format “Quick question for {vendor_name}”. Keep it natural and personal, and avoid formal wording such as “regarding”, “inquiry”, “business opportunity”, or “partnership”.
+  prefer a conversational subject in the format “Quick question for {vendor_name}”. Keep it natural and personal, and avoid formal wording such as “regarding”, “inquiry”, “business opportunity”, or “partnership” Avoid words such as "offer", "deal", "opportunity", "promotion", "boost", "sales", or "partnership".
 
 Respond ONLY with valid JSON matching this exact structure:
 {{
